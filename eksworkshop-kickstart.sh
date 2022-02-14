@@ -105,5 +105,7 @@ echo "Create OIDC Provider"
 eksctl utils associate-iam-oidc-provider --cluster eksworkshop-eksctl --approve
 
 # report end and exit
-echo "All Finished! Run 'source ~/.bashrc' to finish!'"
+echo "All Finished! Run following commands before continue!'"
+echo "Run 'source ~/.bashrc' '"
+echo "Run 'source ~/.bash_profile' '"
 exit 0
