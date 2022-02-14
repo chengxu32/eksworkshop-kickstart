@@ -2,18 +2,35 @@
 
 set -e
 
-# check that role is correct before proceeding
-rm -vf ${HOME}/.aws/credentials
-echo "Checking Cloud9 IAM Role = eksworkshop-admin..."
-if aws sts get-caller-identity --query Arn | grep eksworkshop-admin ; then
-  echo "Correct role detected."
+# Check for prequisites to disable role
+echo "Checking for awscliv2!"
+if [ $(aws --version 2>&1 | cut -d " " -f1 | cut -d "/" -f2 | cut -d "." -f 1) == "1" ];then
+  echo "Installing awscliv2..."
+  curl -sLo "awscliv2.zip" "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+  unzip -q awscliv2.zip
+  sudo ./aws/install
+  rm -rf ./awscliv2.zip ./aws
 else
-    echo "Cloud9 IAM Role incorrect. Fix and re-run"
+  echo "awscliv2 already installed..."
+fi
+
+# check that IAM caller identity, if not correct check IAM profile first,
+echo "Checking Cloud9 IAM Role and caller identity..."
+if aws sts get-caller-identity --query Arn | grep -q MasterKey; then
+  if curl -s http://169.254.169.254/latest/meta-data/iam/info | grep InstanceProfileArn  | grep -q mod; then
+    echo "Turning off AWS Managed Credentials in cloud9..."
+    aws cloud9 update-environment  --environment-id $C9_PID --managed-credentials-action DISABLE
+    rm -f ${HOME}/.aws/credentials
+  else
+    echo "Assigned Cloud9 instance profile is incorrect. Fix first and re-run."
     exit 1
+  fi
+else
+  echo "Cloud9 role and caller identity correct..."
 fi
 
 # install tools
-echo "Installing tools!"
+echo "Installing additional tools!"
 echo "kubectl..."
 curl -sLO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
@@ -41,12 +58,6 @@ curl -sLo kind "https://kind.sigs.k8s.io/dl/v0.11.0/kind-linux-amd64"
 sudo install -o root -g root -m 0755 kind /usr/local/bin/kind
 rm -f ./kind
 
-echo "awscliv2..."
-curl -sLo "awscliv2.zip" "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
-unzip -q awscliv2.zip
-sudo ./aws/install
-rm -rf ./awscliv2.zip ./aws
-
 echo "Helm..."
 bash <(curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3)
 helm repo add stable https://charts.helm.sh/stable
@@ -63,9 +74,16 @@ echo "Adding env vars..."$'\n'
 export ACCOUNT_ID=$(aws sts get-caller-identity --output text --query Account)
 export AWS_REGION=$(curl -s 169.254.169.254/latest/dynamic/instance-identity/document | jq -r '.region')
 export AZS=($(aws ec2 describe-availability-zones --query 'AvailabilityZones[].ZoneName' --output text --region $AWS_REGION))
-echo "export ACCOUNT_ID=${ACCOUNT_ID}" >> ~/.bash_profile
-echo "export AWS_REGION=${AWS_REGION}" >> ~/.bash_profile
+echo "export ACCOUNT_ID=${ACCOUNT_ID}" | tee -a ~/.bash_profile
+echo "export AWS_REGION=${AWS_REGION}" | tee -a ~/.bash_profile
+echo "export AZS=(${AZS[@]})" | tee -a ~/.bash_profile
 aws configure set default.region ${AWS_REGION}
+aws configure get default.region
+
+echo "export ACCOUNT_ID=${ACCOUNT_ID}" >> ~/.bashrc
+echo "export AWS_REGION=${AWS_REGION}" >> ~/.bashrc
+echo "export AZS=(${AZS[@]})" >> ~/.bashrc
+# aws configure set default.region ${AWS_REGION}
 
 # resize root EBS volume 
 echo "Online resizing EBS volume..."$'\n'
@@ -88,7 +106,7 @@ STACK_NAME=$(eksctl get nodegroup --cluster eksworkshop-eksctl -o json | jq -r '
 ROLE_NAME=$(aws cloudformation describe-stack-resources --stack-name $STACK_NAME | jq -r '.StackResources[] | select(.ResourceType=="AWS::IAM::Role") | .PhysicalResourceId')
 echo "export ROLE_NAME=${ROLE_NAME}" | tee -a ~/.bash_profile
 
-echo "Fix Console access"
+echo "Fix EKS Console access"
 c9builder=$(aws cloud9 describe-environment-memberships --environment-id=$C9_PID | jq -r '.memberships[].userArn')
 if echo ${c9builder} | grep -q user; then
 	rolearn=${c9builder}
@@ -104,8 +122,8 @@ eksctl create iamidentitymapping --cluster eksworkshop-eksctl --arn ${rolearn} -
 echo "Create OIDC Provider"
 eksctl utils associate-iam-oidc-provider --cluster eksworkshop-eksctl --approve
 
+aws sts get-caller-identity --query Arn | grep eksworkshop-admin -q && echo "IAM role valid" || echo "IAM role NOT valid"
+
 # report end and exit
-echo "All Finished! Run following commands before continue..."
-echo "Run 'source ~/.bashrc' "
-echo "Run 'source ~/.bash_profile' "
+echo "All Finished! Run 'source ~/.bashrc && source ~/.bash_profile' to finish!'"
 exit 0
