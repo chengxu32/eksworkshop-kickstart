@@ -1,5 +1,5 @@
 # eksworkshop-kickstart
-Bootstrap Cloud9 for EKS Workshop
+# Bootstrap Cloud9 for EKS Workshop
 
 wget https://raw.githubusercontent.com/jhaydter/eksworkshop-kickstart/main/eksworkshop-kickstart.sh
 
