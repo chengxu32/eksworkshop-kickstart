@@ -101,10 +101,10 @@ echo "alias kgn='kubectl get nodes -L beta.kubernetes.io/arch -L eks.amazonaws.c
 
 # Clone lab repositories
 cd ~/environment
-git clone https://github.com/brentley/ecsdemo-frontend.git
-git clone https://github.com/brentley/ecsdemo-nodejs.git
-git clone https://github.com/brentley/ecsdemo-crystal.git
-git clone https://github.com/aws-containers/eks-app-mesh-polyglot-demo.git
+#git clone https://github.com/brentley/ecsdemo-frontend.git
+#git clone https://github.com/brentley/ecsdemo-nodejs.git
+#git clone https://github.com/brentley/ecsdemo-crystal.git
+#git clone https://github.com/aws-containers/eks-app-mesh-polyglot-demo.git
 
 #####################
 ##  Set Variables  ##
